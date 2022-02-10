@@ -1,0 +1,43 @@
+#+title: MEMO
+#+author: matsuyoshi30
+
+* Parsing
+
+** parseNumber の do-notation 記法を使わない書き方
+
+#+begin_src haskell
+parseNumber = do
+  n <- many1 digit
+  return $ (Number . read) n
+-- とか
+parseNumber = many1 digit >>= return . Number . read
+parseNumber = many1 digit >>= \x -> return $ (Number . read) x
+#+end_src
+
+最初に
+
+#+begin_src haskell
+parseNumber = many1 digit >>= Number . read
+#+end_src
+
+って書いてたけど間違いで、 >>= の先の関数は bind 元と同じモナドを返さないといけなかった
+
+#+begin_quote
+Main.hs:45:31: error:
+    • Couldn't match type ‘LispVal’
+                     with ‘Text.Parsec.Prim.ParsecT
+                             String () Data.Functor.Identity.Identity LispVal’
+      Expected type: [Char]
+                     -> Text.Parsec.Prim.ParsecT
+                          String () Data.Functor.Identity.Identity LispVal
+        Actual type: String -> LispVal
+    • In the second argument of ‘(>>=)’, namely ‘Number . read’
+      In the expression: many1 digit >>= Number . read
+      In an equation for ‘parseNumber’:
+          parseNumber = many1 digit >>= Number . read
+   |
+45 | parseNumber = many1 digit >>= Number . read
+   |
+#+end_quote
+
+というエラー
