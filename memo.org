@@ -22,7 +22,7 @@ parseNumber = many1 digit >>= Number . read
 
 って書いてたけど間違いで、 >>= の先の関数は bind 元と同じモナドを返さないといけなかった
 
-#+begin_quote
+#+begin_src
 Main.hs:45:31: error:
     • Couldn't match type ‘LispVal’
                      with ‘Text.Parsec.Prim.ParsecT
@@ -38,7 +38,7 @@ Main.hs:45:31: error:
    |
 45 | parseNumber = many1 digit >>= Number . read
    |
-#+end_quote
+#+end_src
 
 というエラー
 
