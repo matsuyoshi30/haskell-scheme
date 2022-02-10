@@ -41,3 +41,15 @@ Main.hs:45:31: error:
 #+end_quote
 
 というエラー
+
+** parseString を \" に対応させる
+
+エスケープ文字をパーズする関数を作る
+
+#+begin_src haskell
+escapeChar :: Parser Char
+escapeChar = do
+  _ <- char '\\' -- backslash
+  x <- oneOf "\\\"" -- backslask or double-quote
+  return x
+#+end_src

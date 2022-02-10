@@ -17,10 +17,16 @@ symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
 spaces :: Parser ()
 spaces = skipMany1 space
 
+escapeChar :: Parser Char
+escapeChar = do
+  _ <- char '\\'
+  x <- oneOf "\\\""
+  return x
+
 parseString :: Parser LispVal
 parseString = do
   _ <- char '"'
-  x <- many (noneOf "\"")
+  x <- many $ escapeChar <|> (noneOf "\\\"")
   _ <- char '"'
   return $ String x
 
