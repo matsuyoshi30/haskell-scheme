@@ -47,11 +47,9 @@ parseAtom = do
   let atom = first:rest
   return $ Atom atom
 
--- parseDec
 parseDec :: Parser LispVal
 parseDec = liftM (Number . read) $ many1 digit
 
--- parseHex
 parseHex :: Parser LispVal
 parseHex = do
   n <- try $ do
@@ -61,7 +59,6 @@ parseHex = do
     return $ fst ((readHex h) !! 0)
   return $ Number n
 
--- parseOct
 parseOct :: Parser LispVal
 parseOct = do
   n <- try $ do
@@ -71,7 +68,6 @@ parseOct = do
     return $ fst ((readOct o) !! 0)
   return $ Number n
 
--- parseBin
 parseBin :: Parser LispVal
 parseBin = do
   n <- try $ do
