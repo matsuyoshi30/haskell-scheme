@@ -8,6 +8,7 @@ data LispVal = Atom String
   | List [LispVal]
   | DottedList [LispVal] LispVal
   | Number Integer
+  | Float Double
   | String String
   | Bool Bool
   | Character Char
@@ -104,8 +105,17 @@ bin2dig' digint (x:xs) =
 parseNumber :: Parser LispVal
 parseNumber = parseDec <|> parseHex <|> parseOct <|> parseBin
 
+parseFloat :: Parser LispVal
+parseFloat = do
+  f <- try $ do
+    ip <- many1 digit
+    _ <- char '.'
+    dp <- many1 digit
+    return $ fst ((readFloat (ip ++ "." ++ dp)) !! 0)
+  return $ Float f
+
 parseExpr :: Parser LispVal
-parseExpr = parseString <|> parseCharacter <|> parseNumber <|> parseAtom <|> parseBool
+parseExpr = parseString <|> parseCharacter <|> parseFloat <|> parseNumber <|> parseAtom <|> parseBool
 
 readExpr :: String -> String
 readExpr input =
