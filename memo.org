@@ -53,3 +53,43 @@ escapeChar = do
   x <- oneOf "\\\"" -- backslask or double-quote
   return x
 #+end_src
+
+** 2進数を10進数に変換する
+
+以下の通り変換できる
+
+#+begin_src haskell
+bin2dig = bin2dig' 0
+bin2dig' digint "" = digint
+bin2dig' digint (x:xs) =
+  let old = 2 * digint + (if x == '0' then 0 else 1)
+  in bin2dig' old xs
+#+end_src
+
+10111(23)を例に見てみる
+
+#+begin_src haskell
+bin2dig "10111"
+
+bin2dig' 0 "1":"0111" =
+  let old = 2 * 0 + 1
+  in big2dig' old "0111"
+
+     big2dig' 1 "0":"111" =
+       let old = 2 * 1 + 0
+       in big2dig' old "111"
+
+          bin2dig' 2 "1":"11" =
+            let old = 2 * 2 + 1
+            in big2dig' old "11"
+
+               bin2dig' 5 "1":"1" =
+                 let old = 2 * 5 + 1
+                 in big2dig' old "1"
+
+                    big2dig' 11 "1" =
+                      let old = 2 * 11 + 1
+                      in big2dig' old ""
+
+                         big2dig' 23 "" = 23
+#+end_src

@@ -71,8 +71,26 @@ parseOct = do
     return $ fst ((readOct o) !! 0)
   return $ Number n
 
+-- parseBin
+parseBin :: Parser LispVal
+parseBin = do
+  n <- try $ do
+    _ <- char '#'
+    _ <- char 'b'
+    b <- many1 (oneOf "01")
+    return $ bin2dig b
+  return $ Number n
+
+bin2dig :: String -> Integer
+bin2dig = bin2dig' 0
+bin2dig' :: Integer -> String -> Integer
+bin2dig' digint "" = digint
+bin2dig' digint (x:xs) =
+  let old = 2 * digint + (if x == '0' then 0 else 1)
+  in bin2dig' old xs
+
 parseNumber :: Parser LispVal
-parseNumber = parseDec <|> parseHex <|> parseOct
+parseNumber = parseDec <|> parseHex <|> parseOct <|> parseBin
 
 parseExpr :: Parser LispVal
 parseExpr = parseString <|> parseNumber <|> parseAtom <|> parseBool
