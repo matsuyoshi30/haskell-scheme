@@ -61,8 +61,18 @@ parseHex = do
     return $ fst ((readHex h) !! 0)
   return $ Number n
 
+-- parseOct
+parseOct :: Parser LispVal
+parseOct = do
+  n <- try $ do
+    _ <- char '#'
+    _ <- char 'o'
+    o <- many1 octDigit
+    return $ fst ((readOct o) !! 0)
+  return $ Number n
+
 parseNumber :: Parser LispVal
-parseNumber = parseDec <|> parseHex
+parseNumber = parseDec <|> parseHex <|> parseOct
 
 parseExpr :: Parser LispVal
 parseExpr = parseString <|> parseNumber <|> parseAtom <|> parseBool
