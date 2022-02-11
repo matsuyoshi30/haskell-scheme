@@ -128,4 +128,14 @@ http://labs.timedia.co.jp/2012/11/haskell-1.html
 
 [[https://hackage.haskell.org/package/parsec-3.1.15.0/docs/Text-Parsec-Combinator.html#v:sepBy][sepBy]] で指定された区切り文字の内容をリスト化して返す
 
+expr1, expr2, expr3 が [expr1, expr2, expr3] になる
+
 リストの要素は Expr
+
+** DottedList のパーズ
+
+[[https://groups.csail.mit.edu/mac/ftpdir/scheme-7.4/doc-html/scheme_8.html][DottedList]] scheme では (a b . c) みたいな形でリストかける improper だけど
+
+expr1 expr2 expr3 (最後も空白あり)が [expr1, expr2, expr3] になる
+
+[[https://hackage.haskell.org/package/parsec-3.1.15.0/docs/Text-Parsec-Combinator.html#v:endBy][endBy]] で指定された内容と区切り文字の内容をリスト化して返す

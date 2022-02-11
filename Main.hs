@@ -130,10 +130,16 @@ parseRatio = do
 parseList :: Parser LispVal
 parseList = liftM List $ sepBy parseExpr spaces
 
+parseDottedList :: Parser LispVal
+parseDottedList = do
+  h <- endBy parseExpr spaces
+  t <- char '.' >> spaces >> parseExpr
+  return $ DottedList h t
+
 parseExpr :: Parser LispVal
 parseExpr = parseString <|> parseCharacter <|> parseRatio <|> parseFloat <|> parseNumber <|> parseAtom <|> parseBool <|> do
   _ <- char '('
-  x <- try parseList
+  x <- try parseList <|> try parseDottedList
   _ <- char ')'
   return x
 
