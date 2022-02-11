@@ -34,21 +34,23 @@ parseString = do
   _ <- char '"'
   return $ String x
 
+parseBool :: Parser LispVal
+parseBool = do
+  _ <- char '#'
+  (char 't' >> return (Bool True)) <|> (char 'f' >> return (Bool False))
+
 parseAtom :: Parser LispVal
 parseAtom = do
   first <- letter <|> symbol
   rest <- many (letter <|> digit <|> symbol)
   let atom = first:rest
-  return $ case atom of
-    "#t" -> Bool True
-    "#f" -> Bool False
-    _ -> Atom atom
+  return $ Atom atom
 
 parseNumber :: Parser LispVal
 parseNumber = liftM (Number . read) $ many1 digit -- many1 digit が Parser モナドを返すので、 liftM で関数 Number . read を持ち上げてモナド内の値に適用する
 
 parseExpr :: Parser LispVal
-parseExpr = parseString <|> parseAtom <|> parseNumber
+parseExpr = parseString <|> parseBool <|> parseAtom <|> parseNumber
 
 readExpr :: String -> String
 readExpr input =
