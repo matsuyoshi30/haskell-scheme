@@ -12,7 +12,7 @@ data LispVal = Atom String
   deriving Show
 
 symbol :: Parser Char
-symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
+symbol = oneOf "!$%&|*+-/:<=>?@^_~"
 
 spaces :: Parser ()
 spaces = skipMany1 space
