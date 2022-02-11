@@ -1,5 +1,6 @@
 module Main where
 import Control.Monad
+import Data.Ratio
 import Numeric
 import Text.ParserCombinators.Parsec hiding (spaces)
 import System.Environment
@@ -9,6 +10,7 @@ data LispVal = Atom String
   | DottedList [LispVal] LispVal
   | Number Integer
   | Float Double
+  | Ratio Rational
   | String String
   | Bool Bool
   | Character Char
@@ -114,8 +116,17 @@ parseFloat = do
     return $ fst ((readFloat (ip ++ "." ++ dp)) !! 0)
   return $ Float f
 
+parseRatio :: Parser LispVal
+parseRatio = do
+  r <- try $ do
+    n <- many1 digit
+    _ <- char '/'
+    d <- many1 digit
+    return $ (read n) % (read d)
+  return $ Ratio r
+
 parseExpr :: Parser LispVal
-parseExpr = parseString <|> parseCharacter <|> parseFloat <|> parseNumber <|> parseAtom <|> parseBool
+parseExpr = parseString <|> parseCharacter <|> parseRatio <|> parseFloat <|> parseNumber <|> parseAtom <|> parseBool
 
 readExpr :: String -> String
 readExpr input =

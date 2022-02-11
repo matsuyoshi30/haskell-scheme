@@ -117,3 +117,9 @@ parseCharacter = do
 #+end_src
 
 [[https://tnomura9.exblog.jp/15060690/][notFollowedBy について]]
+
+** Haskell の分数表記
+
+http://labs.timedia.co.jp/2012/11/haskell-1.html
+
+/ のかわりに % を使うと有理数計算ができる( Data.Ratio のインポートが必要)
