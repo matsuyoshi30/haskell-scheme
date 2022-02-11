@@ -125,6 +125,8 @@ parseRatio = do
     return $ (read n) % (read d)
   return $ Ratio r
 
+-- TODO: parseComplex
+
 parseExpr :: Parser LispVal
 parseExpr = parseString <|> parseCharacter <|> parseRatio <|> parseFloat <|> parseNumber <|> parseAtom <|> parseBool
 
