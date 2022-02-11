@@ -10,6 +10,7 @@ data LispVal = Atom String
   | Number Integer
   | String String
   | Bool Bool
+  | Character Char
   deriving Show
 
 symbol :: Parser Char
@@ -34,6 +35,21 @@ parseString = do
   x <- many $ escapeChar <|> (noneOf "\\\"")
   _ <- char '"'
   return $ String x
+
+parseCharacter :: Parser LispVal
+parseCharacter = do
+  ch <- try $ do
+    _ <- char '#'
+    _ <- char '\\'
+    c <- string "space" <|> string "newline" <|> do
+      x <- anyChar
+      _ <- notFollowedBy alphaNum
+      return [x]
+    return c
+  return $ Character $ case ch of
+    "space" -> ' '
+    "newline" -> '\n'
+    _ -> ch !! 0
 
 parseBool :: Parser LispVal
 parseBool = do
@@ -89,7 +105,7 @@ parseNumber :: Parser LispVal
 parseNumber = parseDec <|> parseHex <|> parseOct <|> parseBin
 
 parseExpr :: Parser LispVal
-parseExpr = parseString <|> parseNumber <|> parseAtom <|> parseBool
+parseExpr = parseString <|> parseCharacter <|> parseNumber <|> parseAtom <|> parseBool
 
 readExpr :: String -> String
 readExpr input =

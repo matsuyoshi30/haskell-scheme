@@ -93,3 +93,27 @@ bin2dig' 0 "1":"0111" =
 
                          big2dig' 23 "" = 23
 #+end_src
+
+** R5RS の Character 対応
+
+https://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_sec_6.3.4
+
+"#\" のあとに space や newline や一文字アルファベット、数字、左括弧が来たら Character としてパーズする
+
+#+begin_src haskell
+parseCharacter = do
+  ch <- try $ do
+    _ <- char '#'
+    _ <- char '\\'
+    c <- string "space" <|> string "newline" <|> do -- space か newline か一文字 anyChar
+      x <- anyChar
+      _ <- notFollowedBy alphaNum -- アルファベットもしくは数字が二文字以降に続くならパーズ失敗
+      return [x]
+    return c
+  return $ Character $ case ch of
+    "space" -> ' '
+    "newline" -> '\n'
+    _ -> ch !! 0
+#+end_src
+
+[[https://tnomura9.exblog.jp/15060690/][notFollowedBy について]]
