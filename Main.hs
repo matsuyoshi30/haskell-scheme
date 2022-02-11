@@ -1,5 +1,6 @@
 module Main where
 import Control.Monad
+import Numeric
 import Text.ParserCombinators.Parsec hiding (spaces)
 import System.Environment
 
@@ -46,11 +47,25 @@ parseAtom = do
   let atom = first:rest
   return $ Atom atom
 
+-- parseDec
+parseDec :: Parser LispVal
+parseDec = liftM (Number . read) $ many1 digit
+
+-- parseHex
+parseHex :: Parser LispVal
+parseHex = do
+  n <- try $ do
+    _ <- char '#'
+    _ <- char 'x'
+    h <- many1 hexDigit
+    return $ fst ((readHex h) !! 0)
+  return $ Number n
+
 parseNumber :: Parser LispVal
-parseNumber = liftM (Number . read) $ many1 digit -- many1 digit が Parser モナドを返すので、 liftM で関数 Number . read を持ち上げてモナド内の値に適用する
+parseNumber = parseDec <|> parseHex
 
 parseExpr :: Parser LispVal
-parseExpr = parseString <|> parseBool <|> parseAtom <|> parseNumber
+parseExpr = parseString <|> parseNumber <|> parseAtom <|> parseBool
 
 readExpr :: String -> String
 readExpr input =
