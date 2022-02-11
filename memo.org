@@ -123,3 +123,9 @@ parseCharacter = do
 http://labs.timedia.co.jp/2012/11/haskell-1.html
 
 / のかわりに % を使うと有理数計算ができる( Data.Ratio のインポートが必要)
+
+** List のパーズ
+
+[[https://hackage.haskell.org/package/parsec-3.1.15.0/docs/Text-Parsec-Combinator.html#v:sepBy][sepBy]] で指定された区切り文字の内容をリスト化して返す
+
+リストの要素は Expr

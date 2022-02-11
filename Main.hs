@@ -127,8 +127,15 @@ parseRatio = do
 
 -- TODO: parseComplex
 
+parseList :: Parser LispVal
+parseList = liftM List $ sepBy parseExpr spaces
+
 parseExpr :: Parser LispVal
-parseExpr = parseString <|> parseCharacter <|> parseRatio <|> parseFloat <|> parseNumber <|> parseAtom <|> parseBool
+parseExpr = parseString <|> parseCharacter <|> parseRatio <|> parseFloat <|> parseNumber <|> parseAtom <|> parseBool <|> do
+  _ <- char '('
+  x <- try parseList
+  _ <- char ')'
+  return x
 
 readExpr :: String -> String
 readExpr input =
