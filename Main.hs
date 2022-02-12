@@ -1,5 +1,6 @@
 module Main where
 import Control.Monad
+import Data.Array
 import Data.Ratio
 import Numeric
 import Text.ParserCombinators.Parsec hiding (spaces)
@@ -14,6 +15,7 @@ data LispVal = Atom String
   | String String
   | Bool Bool
   | Character Char
+  | Vector (Array Int LispVal)
   deriving Show
 
 symbol :: Parser Char
@@ -161,8 +163,18 @@ parseUnQuoteSplicing = do
   x <- parseExpr
   return $ List [Atom "unquote-splicing", x]
 
+parseVector :: Parser LispVal
+parseVector = do
+  es <- try $ do
+    _ <- char '#'
+    _ <- char '('
+    vals <- sepBy parseExpr spaces
+    _ <- char ')'
+    return vals
+  return $ Vector (listArray (0, (length es - 1)) es)
+
 parseExpr :: Parser LispVal
-parseExpr = parseString <|> parseCharacter <|> parseRatio <|> parseFloat <|> parseNumber <|> parseAtom <|> parseBool <|> parseQuoted  <|> parseQuasiQuoted <|> parseUnQuoteSplicing <|> parseUnQuote <|> do
+parseExpr = parseString <|> parseCharacter <|> parseRatio <|> parseFloat <|> parseNumber <|> parseAtom <|> parseVector <|> parseBool <|> parseQuoted  <|> parseQuasiQuoted <|> parseUnQuoteSplicing <|> parseUnQuote <|> do
   _ <- char '('
   x <- try parseList <|> try parseDottedList
   _ <- char ')'
