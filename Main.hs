@@ -402,6 +402,10 @@ equal [arg1, arg2] = do
   return $ Bool $ (equalResult || let (Bool x) = eqvResult in x)
 equal badArgList = throwError $ NumArgs 2 badArgList
 
+-- TODO: cond
+
+-- TODO: case
+
 readExpr :: String -> ThrowsError LispVal
 readExpr input =
   case parse parseExpr "lisp" input of
