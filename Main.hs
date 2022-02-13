@@ -271,7 +271,9 @@ primitives = [("+", numericBinOp (+)),
              ("string<=?", strBoolBinOp (<=)),
              ("car", car),
              ("cdr", cdr),
-             ("cons", cons)]
+             ("cons", cons),
+             ("eq?", eqv),
+             ("eqv?", eqv)]
 
 numericBinOp :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 numericBinOp _ [] = throwError $ NumArgs 2 []
@@ -361,6 +363,19 @@ cons [x, List xs] = return $ List $ x:xs -- (cons x '(xs1 xs2)) ---> (x xs1 xs2)
 cons [x, DottedList xs xlast] = return $ DottedList (x:xs) xlast -- (cons x ('(xs1 xs2) . xlast)) ---> (x xs1 xs2 . xlast)
 cons [x1, x2] = return $ DottedList [x1] x2 -- (cons x1 x2) ---> (x1 . x2)
 cons badArgList = throwError $ NumArgs 1 badArgList
+
+eqv :: [LispVal] -> ThrowsError LispVal
+eqv [(Bool arg1), (Bool arg2)] = return $ Bool $ arg1 == arg2
+eqv [(Number arg1), (Number arg2)] = return $ Bool $ arg1 == arg2
+eqv [(String arg1), (String arg2)] = return $ Bool $ arg1 == arg2
+eqv [(Atom arg1), (Atom arg2)] = return $ Bool $ arg1 == arg2
+eqv [(List arg1), (List arg2)] = return $ Bool $ (length arg1 == length arg2) && (all eqvPair $ zip arg1 arg2)
+  where eqvPair (x1, x2) = case eqv [x1, x2] of
+          Right (Bool val) -> val
+          _ -> False
+eqv [(DottedList xs x), (DottedList ys y)] = eqv [List $ xs ++ [x], List $ ys ++ [y]]
+eqv [_, _] = return $ Bool False
+eqv badArgList = throwError $ NumArgs 2 badArgList
 
 readExpr :: String -> ThrowsError LispVal
 readExpr input =

@@ -274,3 +274,25 @@ unpackedNum が ThrowsError モナドを戻り値として返すので、 unpack
 ここでも >>= bind によって mapM の結果のモナドの中の値を右の関数に渡している
 
 右では fold1 op でリストを左から畳み込んで、その結果を Number に変換し、さらに return で ThrowsError に上げて返す
+
+** Evaluation Part 2
+
+他の primitive な関数をいろいろ定義
+
+eqv? は引数のリスト（2要素）に対して要素の比較をする
+
+リストの要素がリストである場合は、リストの長さをまずは比較して、同じ要素数であれば各要素を一つずつ見比べていく
+
+#+begin_src haskell
+eqv :: [LispVal] -> ThrowsError LispVal
+eqv [(List arg1), (List arg2)] = return $ Bool $ (length arg1 == length arg2) && (all eqvPair $ zip arg1 arg2)
+  where eqvPair (x1, x2) = case eqv [x1, x2] of
+          Right (Bool val) -> val
+          _ -> False
+#+end_src
+
+zip [xs] [ys] で xs と ys の各要素をそれぞれ取得して順にペアにしたリストを返す
+
+これに対して、ローカル関数として定義した eqvPair でペアの左右を比較する。比較には eqv 自身を使い、引数にペアからリストを作って渡している
+
+all を使用することによって、真偽判定関数と判定対象を要素に持つリストを引数に渡すことにより、結果を && でつないだときと同じような処理になる（これも畳み込みか）
