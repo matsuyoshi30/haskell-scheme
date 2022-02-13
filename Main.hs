@@ -199,6 +199,7 @@ parseExpr = parseString <|> parseCharacter <|> parseRatio <|> parseFloat <|> par
 
 eval :: LispVal -> LispVal
 eval val@(String _) = val
+eval val@(Character _) = val
 eval val@(Number _) = val
 eval val@(Bool _) = val
 eval val@(Atom _) = val
@@ -217,7 +218,12 @@ primitives = [("+", numericBinOp (+)),
              ("quotient", numericBinOp quot),
              ("remainder", numericBinOp rem),
              ("boolean?", unaryOp boolp),
-             ("symbol?", unaryOp symbolp)]
+             ("symbol?", unaryOp symbolp),
+             ("string?", unaryOp stringp),
+             ("number?", unaryOp numberp),
+             ("char?", unaryOp charp),
+             ("list?", unaryOp listp),
+             ("vector?", unaryOp vectorp)]
 
 numericBinOp :: (Integer -> Integer -> Integer) -> [LispVal] -> LispVal
 numericBinOp op params = Number $ foldl1 op $ map unpackedNum params
@@ -236,6 +242,26 @@ boolp _ = Bool False
 symbolp :: LispVal -> LispVal
 symbolp (Atom _) = Bool True
 symbolp _ = Bool False
+
+stringp :: LispVal -> LispVal
+stringp (String _) = Bool True
+stringp _ = Bool False
+
+numberp :: LispVal -> LispVal
+numberp (Number _) = Bool True
+numberp _ = Bool False
+
+charp :: LispVal -> LispVal
+charp (Character _) = Bool True
+charp _ = Bool False
+
+listp :: LispVal -> LispVal
+listp (List _) = Bool True
+listp _ = Bool False
+
+vectorp :: LispVal -> LispVal
+vectorp (Vector _) = Bool True
+vectorp _ = Bool False
 
 readExpr :: String -> LispVal
 readExpr input =
