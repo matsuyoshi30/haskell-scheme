@@ -214,7 +214,8 @@ primitives = [("+", numericBinOp (+)),
              ("/", numericBinOp div),
              ("mod", numericBinOp mod),
              ("quotient", numericBinOp quot),
-             ("remainder", numericBinOp rem)]
+             ("remainder", numericBinOp rem),
+             ("boolean?", typeTestingBoolOp)]
 
 numericBinOp :: (Integer -> Integer -> Integer) -> [LispVal] -> LispVal
 numericBinOp op params = Number $ foldl1 op $ map unpackedNum params
@@ -222,6 +223,10 @@ numericBinOp op params = Number $ foldl1 op $ map unpackedNum params
 unpackedNum :: LispVal -> Integer
 unpackedNum (Number n) = n
 unpackedNum _ = 0
+
+typeTestingBoolOp :: [LispVal] -> LispVal
+typeTestingBoolOp [(Bool _)] = Bool True
+typeTestingBoolOp _ = Bool False
 
 readExpr :: String -> LispVal
 readExpr input =
