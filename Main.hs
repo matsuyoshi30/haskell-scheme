@@ -31,7 +31,7 @@ showVal (Float contents) = show contents
 showVal (Ratio contents) = show contents
 showVal (Bool True) = "#t"
 showVal (Bool False) = "#f"
-showVal (Character ch) = "'" ++ show ch ++ "'"
+showVal (Character ch) = show ch
 showVal (Vector arr) = "#(" ++ unwordList (elems arr) ++ ")"
 
 unwordList :: [LispVal] -> String
