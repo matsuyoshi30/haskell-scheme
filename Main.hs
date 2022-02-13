@@ -256,7 +256,9 @@ primitives = [("+", numericBinOp (+)),
              (">", numBoolBinOp (>)),
              ("<", numBoolBinOp (<)),
              (">=", numBoolBinOp (>=)),
-             ("<=", numBoolBinOp (<=))]
+             ("<=", numBoolBinOp (<=)),
+             ("&&", boolBoolBinOp (&&)),
+             ("||", boolBoolBinOp (||))]
 
 numericBinOp :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 numericBinOp _ [] = throwError $ NumArgs 2 []
@@ -273,10 +275,15 @@ boolBinOp unpacker op args =
       return $ Bool $ left `op` right
 
 numBoolBinOp = boolBinOp unpackedNum
+boolBoolBinOp = boolBinOp unpackedBool
 
 unpackedNum :: LispVal -> ThrowsError Integer
 unpackedNum (Number n) = return n
 unpackedNum notNum = throwError $ TypeMismatch "number" notNum
+
+unpackedBool :: LispVal -> ThrowsError Bool
+unpackedBool (Bool b) = return b
+unpackedBool notBool = throwError $ TypeMismatch "boolean" notBool
 
 unaryOp :: (LispVal -> LispVal) -> [LispVal] -> ThrowsError LispVal
 unaryOp f [v] = return $ f v
