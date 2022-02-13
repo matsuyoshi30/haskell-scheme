@@ -192,3 +192,85 @@ lookup が成功したときは、その結果の値が第2引数に渡した関
 -- Prelude> :t ($ 1)
 ($ 1) :: Num a => (a -> b) -> b
 #+end_src
+
+** エラーチェックと例外
+
+Maybe モナドだと「失敗したかもしれない」という文脈をもたせることはできるが、「どういう失敗をするかもしれないか」まで情報を持てない
+
+Either モナドを使ってエラーの内容を保持するように修正する
+
+#+begin_src haskell
+type ThrowsError = Either LispError
+#+end_src
+
+別途 LispError というエラー専用の型を定義して、 Either モナドの Left にそのエラー情報を持つような新たな型 ThrowsError を定義する
+
+ThrowsError の Right は正常処理の結果が格納されるので、 ThrowsError から値を取る関数を別途定義
+
+#+begin_src haskell
+extractValue :: ThrowsError a -> a
+extractValue (Right val) = val
+#+end_src
+
+あとはエラーが発生しうる各関数の戻り値を ThrowsError で包んで、 LispError から ThrowsError LispVal にする
+
+エラーが発生する可能性のある箇所では、事前に定義したエラー型の値インスタンスを用いてエラー情報をカスタマイズする。このとき [[https://hackage.haskell.org/package/mtl-2.2.2/docs/Control-Monad-Error.html#v:throwError][throwError]] 関数を用いて戻り値を ThrowsError にする
+
+#+begin_src haskell
+-- Prelude Control.Monad.Except> :t throwError
+throwError :: MonadError e m => e -> m a
+#+end_src
+
+これにより、エラー情報 e を受け取りモナド値に変換する
+
+発生したエラーは最終的にどこかで catch される必要があるが、ここでは main で行う
+
+#+begin_src haskell
+-- Prelude Control.Monad.Except> :t catchError
+catchError :: MonadError e m => m a -> (e -> m a) -> m a
+#+end_src
+
+上記の通り定義されている [[https://hackage.haskell.org/package/mtl-2.2.2/docs/Control-Monad-Error.html#v:catchError][catchError]]r 関数を用いてエラーを catch する。これはモナド値 m a と、エラー情報をモナド値に変換する関数 e -> m a を受け取り、モナド値を返すもの
+
+#+begin_src haskell
+trapError action = catchError action (return . show)
+#+end_src
+
+action (Either モナド)の結果が正常であれば当然処理すべきエラー情報はないのでそのままのモナド値が返る
+
+エラーが発生している場合は、第2引数に指定された (return . show) によりエラー情報が ThrowsError の Right に設定される (handle previous errors and return to normal execution)
+
+*** 関数適用の戻り値を Either に変換することに伴う他の変更
+
+Either モナド導入前の関数適用の評価関数は以下の通り
+
+#+begin_src haskell
+eval (List (Atom func : args)) = apply func $ map eval args
+#+end_src
+
+リスト args に対して eval を map 適用し、返ってきたリストを引数にして func を apply することで逆にしている
+
+Either モナド導入によって以下の通り変更
+
+#+begin_src haskell
+eval (List (Atom func : args)) = mapM eval args >>= apply func
+#+end_src
+
+mapM は第2引数に持つモナドの中の値に対して第1引数の関数を適用し、第2引数と同じ型のモナドを返すもの
+
+>>= によって mapM の結果のモナドの中の値を右の処理に渡していて(bind)、ここではその値に対して func を apply している
+
+あとは算術計算の関数系を例にすると
+
+#+begin_src haskell
+-- Either 導入前
+numericBinOp op params = Number $ foldl1 op $ map unpackedNum params
+-- Either 導入後
+numericBinOp op params = mapM unpackedNum params >>= return . Number . foldl1 op
+#+end_src
+
+unpackedNum が ThrowsError モナドを戻り値として返すので、 unpackedNum params で引数の数値リストを LispVal から Number 型に変換するのに mapM を用いている
+
+ここでも >>= bind によって mapM の結果のモナドの中の値を右の関数に渡している
+
+右では fold1 op でリストを左から畳み込んで、その結果を Number に変換し、さらに return で ThrowsError に上げて返す
