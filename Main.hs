@@ -208,13 +208,20 @@ apply :: String -> [LispVal] -> LispVal
 apply func args = maybe (Bool False) ($ args) $ lookup func primitives
 
 primitives :: [(String, [LispVal] -> LispVal)]
-primitives = [("+", numericBinOp (+))]
+primitives = [("+", numericBinOp (+)),
+             ("-", numericBinOp (-)),
+             ("*", numericBinOp (*)),
+             ("/", numericBinOp div),
+             ("mod", numericBinOp mod),
+             ("quotient", numericBinOp quot),
+             ("remainder", numericBinOp rem)]
 
 numericBinOp :: (Integer -> Integer -> Integer) -> [LispVal] -> LispVal
 numericBinOp op params = Number $ foldl1 op $ map unpackedNum params
 
 unpackedNum :: LispVal -> Integer
 unpackedNum (Number n) = n
+unpackedNum _ = 0
 
 readExpr :: String -> LispVal
 readExpr input =
