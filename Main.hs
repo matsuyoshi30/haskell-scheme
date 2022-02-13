@@ -258,6 +258,7 @@ primitives = [("+", numericBinOp (+)),
              ("vector?", unaryOp vectorp),
              ("symbol->string", symbolToStr),
              ("string->symbol", stringToSym),
+             ("string-length", stringLength),
              ("=", numBoolBinOp (==)),
              ("/=", numBoolBinOp (/=)),
              (">", numBoolBinOp (>)),
@@ -347,6 +348,10 @@ symbolToStr notSym = throwError $ TypeMismatch "symbol" (List notSym)
 stringToSym :: [LispVal] -> ThrowsError LispVal
 stringToSym [(String str)] = return $ Atom str
 stringToSym notStr = throwError $ TypeMismatch "string" (List notStr)
+
+stringLength :: [LispVal] -> ThrowsError LispVal
+stringLength [(String str)] = return $ Number $ toInteger $ length str
+stringLength notStr = throwError $ TypeMismatch "string" (List notStr)
 
 car :: [LispVal] -> ThrowsError LispVal
 car [List (x:_)] = return x
