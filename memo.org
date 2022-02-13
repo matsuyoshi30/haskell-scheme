@@ -335,3 +335,23 @@ Main.hs:382:61: error: Not in scope: type variable ‘a’
 この型の差異を、これらの型が存在する集合ととらえ、それを一つの型に集約するのが forall a. であり、これは存在型 Existential Type と呼ばれる
 
 [[https://en.wikibooks.org/wiki/Haskell/Existentially_quantified_types][Haskell/Existentially quantified types]]
+
+** REPL (Read - Eval - Print Loop)
+
+ただただ文字列を標準出力に Flush するもの、プロンプトに入力された内容を読み取るもの、文字列を評価するもの、評価結果を出力するもの等、仕事ごとに関数を作る
+
+無限ループは再帰で実現する。引数に終了条件を受けるようにする
+
+>> は左の関数の結果を捨てて右の関数の処理に移る演算子
+
+#+begin_src haskell
+readPrompt prompt = flushStr prompt >> getLine -- Flush するけどその関数の戻り値は無視して getLine する
+
+until_ terminateCond prompt action = do
+  result <- prompt
+  if terminateCond result
+    then return ()
+    else action result >> until_ terminateCond prompt action -- action result の戻り値は無視して再帰
+#+end_src
+
+今回は、プログラム起動時に引数がなければ REPL に、あればそれを評価して出力するようにしている（引数は0個もしくは1個を許容）
