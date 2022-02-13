@@ -391,6 +391,11 @@ unpackEquals arg1 arg2 (AnyUnpacker unpacker) = do
   `catchError` (const $ return False)
 
 equal :: [LispVal] -> ThrowsError LispVal
+equal [(List arg1), (List arg2)] = return $ Bool $ (length arg1 == length arg2) && (all equalPair $ zip arg1 arg2)
+  where equalPair (x1, x2) = case equal [x1, x2] of
+          Right (Bool val) -> val
+          _ -> False
+equal [(DottedList xs x), (DottedList ys y)] = equal [List $ xs ++ [x], List $ ys ++ [y]]
 equal [arg1, arg2] = do
   equalResult <- liftM or $ mapM (unpackEquals arg1 arg2) [AnyUnpacker unpackedNum, AnyUnpacker unpackedBool, AnyUnpacker unpackedStr]
   eqvResult <- eqv [arg1, arg2]
