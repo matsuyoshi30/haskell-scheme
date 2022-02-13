@@ -54,6 +54,7 @@ showErr (NotFunction message func) = message ++ ": " ++ show func
 showErr (NumArgs expected found) = "Expected " ++ show expected ++ "args; found values " ++ unwordList found
 showErr (TypeMismatch expected found) = "Invalid type: expected " ++ expected ++ ", found " ++ show found
 showErr (Parser pe) = "Parse error at " ++ show pe
+showErr (Default message) = message
 
 type ThrowsError = Either LispError
 
@@ -360,7 +361,10 @@ makeString [(Number n), (Character ch)] = return $ String $ replicate (fromInteg
 makeString badArgList = throwError $ NumArgs 2 badArgList
 
 stringRef :: [LispVal] -> ThrowsError LispVal
-stringRef [(String str), (Number n)] = return $ Character $ str !! (fromIntegral n)
+stringRef [(String str), (Number n)]
+  | length str <= (fromIntegral n) = throwError $ Default "Out of bounds error"
+  | otherwise = return $ Character $ str !! (fromIntegral n)
+stringRef [notString, _] = throwError $ TypeMismatch "string" notString
 stringRef badArgList = throwError $ NumArgs 2 badArgList
 
 car :: [LispVal] -> ThrowsError LispVal
