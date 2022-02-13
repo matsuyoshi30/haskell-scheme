@@ -296,3 +296,42 @@ zip [xs] [ys] で xs と ys の各要素をそれぞれ取得して順にペア�
 これに対して、ローカル関数として定義した eqvPair でペアの左右を比較する。比較には eqv 自身を使い、引数にペアからリストを作って渡している
 
 all を使用することによって、真偽判定関数と判定対象を要素に持つリストを引数に渡すことにより、結果を && でつないだときと同じような処理になる（これも畳み込みか）
+
+*** equal?
+
+scheme では等価性判定関数が3種類用意されている [[https://practical-scheme.net/gauche/man/gauche-refj/Deng-Jia-Xing-toBi-Jiao-.html][参考]]
+
+今回は、 eq? と eqv? は値が同じであれば True を返すようにし、 equal? は Haskell 的に同じ値を表しているのであれば True を返す、という区分で定義する
+
+つまり (equal? 2 "2") は True と返してほしい
+
+比較関数周りの実装で、真偽値(#t, #f)や数値、文字列に対しては Unpack してジェネリックに扱えるようにした関数を作っていた。ここではこの Unpack 系関数を引数に適用し、 Unpack できた値が同じであれば True を返すようにする
+
+真偽値、数値、文字列ごとにパターンマッチで処理を書いてもよいがほぼ同じ内容になるので、ここではこれらの Unpack 系関数をリスト化し、引数に対してリスト化された関数を mapM して適用する
+
+Haskell 標準ではリストの要素は同データ型でないといけないが、 Unpack 系関数は真偽値は LispVal -> ThrowsError Bool で数値は LispVal -> ThrowsError Integer など関数の型が異なっているため、包括的な Unpacker というデータ型を定義して関数を値コンストラクタでラップしてリスト化する
+
+#+begin_src haskell
+data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
+#+end_src
+
+この forall a. とはなにか。 GHC 拡張  とともにこれを付けないとコンパイル時に以下のエラーが発生する
+
+#+begin_src shell
+Main.hs:382:20: error: Not in scope: type variable ‘a’
+    |
+382 | data Unpacker = Eq a => AnyUnpacker (LispVal -> ThrowsError a)
+    |                    ^
+
+Main.hs:382:61: error: Not in scope: type variable ‘a’
+    |
+382 | data Unpacker = Eq a => AnyUnpacker (LispVal -> ThrowsError a)
+#+end_src
+
+ここではデータ型に対して型クラス制約を設けているが、その際使用されている型変数 a がスコープに無いというエラー
+
+型変数なので、例えばある2つのデータ A と B に対してそれぞれ異なる型 Integer と String が型変数に入っていても問題ない（これらは型クラス制約 Eq を満たす）が、厳密には A と B は異なる型となり同一のリストに格納したりすることができない
+
+この型の差異を、これらの型が存在する集合ととらえ、それを一つの型に集約するのが forall a. であり、これは存在型 Existential Type と呼ばれる
+
+[[https://en.wikibooks.org/wiki/Haskell/Existentially_quantified_types][Haskell/Existentially quantified types]]
