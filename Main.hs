@@ -223,7 +223,9 @@ primitives = [("+", numericBinOp (+)),
              ("number?", unaryOp numberp),
              ("char?", unaryOp charp),
              ("list?", unaryOp listp),
-             ("vector?", unaryOp vectorp)]
+             ("vector?", unaryOp vectorp),
+             ("symbol->string", symbolToStr),
+             ("string->symbol", stringToSym)]
 
 numericBinOp :: (Integer -> Integer -> Integer) -> [LispVal] -> LispVal
 numericBinOp op params = Number $ foldl1 op $ map unpackedNum params
@@ -262,6 +264,14 @@ listp _ = Bool False
 vectorp :: LispVal -> LispVal
 vectorp (Vector _) = Bool True
 vectorp _ = Bool False
+
+symbolToStr :: [LispVal] -> LispVal
+symbolToStr [(Atom atom)] = String atom
+symbolToStr _ = String ""
+
+stringToSym :: [LispVal] -> LispVal
+stringToSym [(String str)] = Atom str
+stringToSym _ = Atom ""
 
 readExpr :: String -> LispVal
 readExpr input =
