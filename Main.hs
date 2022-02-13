@@ -197,13 +197,30 @@ parseExpr = parseString <|> parseCharacter <|> parseRatio <|> parseFloat <|> par
   _ <- char ')'
   return x
 
-readExpr :: String -> String
+eval :: LispVal -> LispVal
+eval val@(String _) = val
+eval val@(Number _) = val
+eval val@(Bool _) = val
+eval (List [Atom "quote", val]) = val
+eval (List (Atom func : args)) = apply func $ map eval args
+
+apply :: String -> [LispVal] -> LispVal
+apply func args = maybe (Bool False) ($ args) $ lookup func primitives
+
+primitives :: [(String, [LispVal] -> LispVal)]
+primitives = [("+", numericBinOp (+))]
+
+numericBinOp :: (Integer -> Integer -> Integer) -> [LispVal] -> LispVal
+numericBinOp op params = Number $ foldl1 op $ map unpackedNum params
+
+unpackedNum :: LispVal -> Integer
+unpackedNum (Number n) = n
+
+readExpr :: String -> LispVal
 readExpr input =
   case parse parseExpr "lisp" input of
-    Left err -> "No match: " ++ show err
-    Right val -> "Found value: " ++ show val
+    Left err -> String $ "No match: " ++ show err
+    Right val -> val
 
 main :: IO ()
-main = do
-  (expr:_) <- getArgs
-  putStrLn (readExpr expr)
+main = getArgs >>= print . eval . readExpr . head
