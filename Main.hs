@@ -260,6 +260,7 @@ primitives = [("+", numericBinOp (+)),
              ("string->symbol", stringToSym),
              ("string-length", stringLength),
              ("make-string", makeString),
+             ("string-ref", stringRef),
              ("=", numBoolBinOp (==)),
              ("/=", numBoolBinOp (/=)),
              (">", numBoolBinOp (>)),
@@ -357,6 +358,10 @@ stringLength notStr = throwError $ TypeMismatch "string" (List notStr)
 makeString :: [LispVal] -> ThrowsError LispVal
 makeString [(Number n), (Character ch)] = return $ String $ replicate (fromInteger n) ch
 makeString badArgList = throwError $ NumArgs 2 badArgList
+
+stringRef :: [LispVal] -> ThrowsError LispVal
+stringRef [(String str), (Number n)] = return $ Character $ str !! (fromIntegral n)
+stringRef badArgList = throwError $ NumArgs 2 badArgList
 
 car :: [LispVal] -> ThrowsError LispVal
 car [List (x:_)] = return x
