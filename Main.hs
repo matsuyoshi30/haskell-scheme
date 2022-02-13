@@ -268,7 +268,10 @@ primitives = [("+", numericBinOp (+)),
              ("string>?", strBoolBinOp (>)),
              ("string<?", strBoolBinOp (<)),
              ("string>=?", strBoolBinOp (>=)),
-             ("string<=?", strBoolBinOp (<=))]
+             ("string<=?", strBoolBinOp (<=)),
+             ("car", car),
+             ("cdr", cdr),
+             ("cons", cons)]
 
 numericBinOp :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 numericBinOp _ [] = throwError $ NumArgs 2 []
@@ -338,6 +341,26 @@ symbolToStr notSym = throwError $ TypeMismatch "symbol" (List notSym)
 stringToSym :: [LispVal] -> ThrowsError LispVal
 stringToSym [(String str)] = return $ Atom str
 stringToSym notStr = throwError $ TypeMismatch "string" (List notStr)
+
+car :: [LispVal] -> ThrowsError LispVal
+car [List (x:_)] = return x
+car [DottedList (x:_) _] = return x
+car [badArg] = throwError $ TypeMismatch "pair" badArg
+car badArgList = throwError $ NumArgs 1 badArgList
+
+cdr :: [LispVal] -> ThrowsError LispVal
+cdr [List (_:xs)] = return $ List xs
+cdr [DottedList [_] x] = return x -- (a . b) = Dottedlist [a] b ---> b
+cdr [DottedList (_:xs) x] = return $ DottedList xs x -- (a b . c) = DottedList [a, b] c ---> (b . c)
+cdr [badArg] = throwError $ TypeMismatch "pair" badArg
+cdr badArgList = throwError $ NumArgs 1 badArgList
+
+cons :: [LispVal] -> ThrowsError LispVal
+cons [x, List []] = return $ List [x] -- (cons x ()) ---> (x)
+cons [x, List xs] = return $ List $ x:xs -- (cons x '(xs1 xs2)) ---> (x xs1 xs2)
+cons [x, DottedList xs xlast] = return $ DottedList (x:xs) xlast -- (cons x ('(xs1 xs2) . xlast)) ---> (x xs1 xs2 . xlast)
+cons [x1, x2] = return $ DottedList [x1] x2 -- (cons x1 x2) ---> (x1 . x2)
+cons badArgList = throwError $ NumArgs 1 badArgList
 
 readExpr :: String -> ThrowsError LispVal
 readExpr input =
