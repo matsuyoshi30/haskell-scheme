@@ -16,7 +16,24 @@ data LispVal = Atom String
   | Bool Bool
   | Character Char
   | Vector (Array Int LispVal)
-  deriving Show
+
+instance Show LispVal where show = showVal
+
+showVal :: LispVal -> String
+showVal (List contents) = "(" ++ unwordList contents ++ ")"
+showVal (DottedList head tail) = "(" ++ unwordList head ++ " . " ++ showVal tail ++ ")"
+showVal (String contents) = "\"" ++ contents ++ "\""
+showVal (Atom name) = name
+showVal (Number contents) = show contents
+showVal (Float contents) = show contents
+showVal (Ratio contents) = show contents
+showVal (Bool True) = "#t"
+showVal (Bool False) = "#f"
+showVal (Character ch) = "'" ++ show ch ++ "'"
+showVal (Vector arr) = "#(" ++ unwordList (elems arr) ++ ")"
+
+unwordList :: [LispVal] -> String
+unwordList = unwords . map showVal
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=>?@^_~"
