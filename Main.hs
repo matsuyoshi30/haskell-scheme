@@ -233,7 +233,8 @@ eval (List [Atom "if", test, conseq, alt]) = do
   result <- eval test
   case result of
     Bool True -> eval conseq
-    _ -> eval alt
+    Bool False -> eval alt
+    other -> throwError $ TypeMismatch "boolean" other
 eval (List (Atom func : args)) = mapM eval args >>= apply func
 eval badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
