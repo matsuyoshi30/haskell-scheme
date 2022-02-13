@@ -250,12 +250,29 @@ primitives = [("+", numericBinOp (+)),
              ("list?", unaryOp listp),
              ("vector?", unaryOp vectorp),
              ("symbol->string", symbolToStr),
-             ("string->symbol", stringToSym)]
+             ("string->symbol", stringToSym),
+             ("=", numBoolBinOp (==)),
+             ("/=", numBoolBinOp (/=)),
+             (">", numBoolBinOp (>)),
+             ("<", numBoolBinOp (<)),
+             (">=", numBoolBinOp (>=)),
+             ("<=", numBoolBinOp (<=))]
 
 numericBinOp :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 numericBinOp _ [] = throwError $ NumArgs 2 []
 numericBinOp _ singleVal@[_] = throwError $ NumArgs 2 singleVal
 numericBinOp op params = mapM unpackedNum params >>= return . Number . foldl1 op
+
+boolBinOp :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
+boolBinOp unpacker op args =
+  if length args /= 2
+    then throwError $ NumArgs 2 args
+    else do
+      left <- unpacker $ args !! 0
+      right <- unpacker $ args !! 1
+      return $ Bool $ left `op` right
+
+numBoolBinOp = boolBinOp unpackedNum
 
 unpackedNum :: LispVal -> ThrowsError Integer
 unpackedNum (Number n) = return n
