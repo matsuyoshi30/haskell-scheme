@@ -354,10 +354,13 @@ stringToSym notStr = throwError $ TypeMismatch "string" (List notStr)
 
 stringLength :: [LispVal] -> ThrowsError LispVal
 stringLength [(String str)] = return $ Number $ toInteger $ length str
+stringLength [notString] = throwError $ TypeMismatch "string" notString
 stringLength notStr = throwError $ TypeMismatch "string" (List notStr)
 
 makeString :: [LispVal] -> ThrowsError LispVal
 makeString [(Number n), (Character ch)] = return $ String $ replicate (fromInteger n) ch
+makeString [(Number _), notCharacter] = throwError $ TypeMismatch "character" notCharacter
+makeString [notNumber, _] = throwError $ TypeMismatch "number" notNumber
 makeString badArgList = throwError $ NumArgs 2 badArgList
 
 stringRef :: [LispVal] -> ThrowsError LispVal
