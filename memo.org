@@ -156,3 +156,39 @@ parseVector = do
     return vals
   return $ Vector (listArray (0, (length es - 1)) es) -- Data.Array の listArray でリストを Array に変換
 #+end_src
+
+* Evaluation
+
+** 関数適用
+
+関数が第一級オブジェクトなので引数に持てる
+
+関数適用のケースでは、リストの戦闘要素が関数として評価できる場合、その関数の処理内容を引っ張ってきてリストの残りの引数群に適用させればよい
+
+ここでは以下のとおり apply を実装
+
+#+begin_src haskell
+apply :: String -> [LispVal] -> LispVal
+apply func args = maybe (Bool False) ($ args) $ lookup func primitives
+#+end_src
+
+primitives に事前に定義した関数をターゲットに、評価対象の文字列が lookup で引っ張ってこれるか試す
+
+引っ張ってこれなかったら Bool False を返すが、引っ張ってくることができれば引っ張ってきた処理内容を引数 args に適用する
+
+#+begin_src haskell
+maybe :: b -> (a -> b) -> Maybe a -> b
+#+end_src
+
+maybe は、第1引数には失敗したときに返す値を、第2引数には第3引数が渡されたときに第1引数と同じ型を返す関数を渡す
+
+ここでは第1引数は lookup が失敗したとき（ primitives に適用できる関数がなかった）に返す Bool False :: LispVal が、第2引数にはセクション化された関数適用演算子と args が、第3引数には lookup の結果が渡されている
+
+lookup が成功したときは、その結果の値が第2引数に渡した関数に適用されて、その結果が maybe の結果として返される。そのため、第1引数の型と、第2引数の関数が返す型は同じでなければならない
+
+中置記法の $ は関数適用演算子だが、セクション化することで引数 args を適用する、引数に関数を期待する関数として書くことができる
+
+#+begin_src haskell
+-- Prelude> :t ($ 1)
+($ 1) :: Num a => (a -> b) -> b
+#+end_src
