@@ -3,6 +3,7 @@ module Main where
 import Control.Monad
 import Control.Monad.Except
 import Data.Array
+import Data.IORef
 import Data.Ratio
 import Numeric
 import Text.ParserCombinators.Parsec hiding (spaces)
@@ -224,21 +225,73 @@ parseExpr = parseString <|> parseCharacter <|> parseRatio <|> parseFloat <|> par
   _ <- char ')'
   return x
 
-eval :: LispVal -> ThrowsError LispVal
-eval val@(String _) = return val
-eval val@(Character _) = return val
-eval val@(Number _) = return val
-eval val@(Bool _) = return val
-eval val@(Atom _) = return val
-eval (List [Atom "quote", val]) = return val
-eval (List [Atom "if", test, conseq, alt]) = do
-  result <- eval test
+type Env = IORef [(String, IORef LispVal)]
+
+nullEnv :: IO Env
+nullEnv = newIORef []
+
+type IOThrowsError = ExceptT LispError IO
+
+liftThrows :: ThrowsError a -> IOThrowsError a
+liftThrows (Left err) = throwError err
+liftThrows (Right val) = return val
+
+runIOThrows :: IOThrowsError String -> IO String
+runIOThrows action = runExceptT (trapError action) >>= return . extractValue
+
+isBound :: Env -> String -> IO Bool
+isBound envRef var = readIORef envRef >>= return . maybe False (const True) . lookup var
+
+getVar :: Env -> String -> IOThrowsError LispVal
+getVar envRef var = do
+  env <- liftIO $ readIORef envRef
+  maybe (throwError $ UnboundVar "Getting an unbound variable" var)
+    (liftIO . readIORef)
+    (lookup var env)
+
+setVar :: Env -> String -> LispVal -> IOThrowsError LispVal
+setVar envRef var val = do
+  env <- liftIO $ readIORef envRef
+  maybe (throwError $ UnboundVar "Setting an unbound variable" var)
+    (liftIO . (flip writeIORef val))
+    (lookup var env)
+  return val
+
+defineVar :: Env -> String -> LispVal -> IOThrowsError LispVal
+defineVar envRef var val = do
+  alreadyDefined <- liftIO $ isBound envRef var
+  if alreadyDefined
+    then setVar envRef var val >> return val
+    else liftIO $ do
+           valRef <- newIORef val
+           env <- readIORef envRef
+           writeIORef envRef ((var, valRef) : env)
+           return val
+
+-- bindVar :: Env -> [(String, LispVal)] -> IO Env
+-- bindVar envRef bindings = readIORef envRef >>= extendEnv bindings >>= newIORef
+--   where extendEnv bindings env = liftM (++ env) (mapM addBinding bindings)
+--         addBinding (var, val) = do
+--           ref <- newIORef val
+--           return (var, ref)
+
+eval :: Env -> LispVal -> IOThrowsError LispVal
+eval _ val@(String _) = return val
+eval _ val@(Character _) = return val
+eval _ val@(Number _) = return val
+eval _ val@(Bool _) = return val
+eval env (Atom id) = getVar env id
+eval _ (List [Atom "quote", val]) = return val
+eval env (List [Atom "if", test, conseq, alt]) = do
+  result <- eval env test
   case result of
-    Bool True -> eval conseq
-    Bool False -> eval alt
+    Bool True -> eval env conseq
+    Bool False -> eval env alt
     other -> throwError $ TypeMismatch "boolean" other
-eval (List (Atom func : args)) = mapM eval args >>= apply func
-eval badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
+eval env (List [Atom "setl", Atom var, form]) = eval env form >>= setVar env var
+eval env (List [Atom "define", Atom var, form]) = eval env form >>= defineVar env var
+eval env (List (Atom func : args)) = mapM (eval env) args >>= liftThrows . apply func
+eval _ badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 apply :: String -> [LispVal] -> ThrowsError LispVal
 apply func args = maybe (throwError $ NotFunction "Unrecognized primitive function args" func) ($ args) (lookup func primitives)
@@ -443,11 +496,11 @@ readPrompt prompt = flushStr prompt >> getLine
 
 trapError action = catchError action (return . show)
 
-evalString :: String -> IO String
-evalString expr = return $ extractValue $ trapError (liftM show $ readExpr expr >>= eval)
+evalString :: Env -> String -> IO String
+evalString env expr = runIOThrows $ liftM show $ (liftThrows $ readExpr expr) >>= eval env
 
-evalAndPrint :: String -> IO ()
-evalAndPrint expr = evalString expr >>= putStrLn
+evalAndPrint :: Env -> String -> IO ()
+evalAndPrint env expr = evalString env expr >>= putStrLn
 
 until_ terminateCond prompt action = do
   result <- prompt
@@ -455,13 +508,16 @@ until_ terminateCond prompt action = do
     then return ()
     else action result >> until_ terminateCond prompt action
 
+runOne :: String -> IO ()
+runOne expr = nullEnv >>= flip evalAndPrint expr
+
 runRepl :: IO ()
-runRepl = until_ (== "quit") (readPrompt "MINI Haskell-Scheme >>> ") evalAndPrint
+runRepl = nullEnv >>= until_ (== "quit") (readPrompt "MINI Haskell-Scheme >>> ") . evalAndPrint
 
 main :: IO ()
 main = do
   args <- getArgs
   case length args of
     0 -> runRepl
-    1 -> evalAndPrint $ args !! 0
+    1 -> runOne $ args !! 0
     _ -> putStrLn "Program takes only 0 or 1 argument"

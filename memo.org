@@ -355,3 +355,83 @@ until_ terminateCond prompt action = do
 #+end_src
 
 今回は、プログラム起動時に引数がなければ REPL に、あればそれを評価して出力するようにしている（引数は0個もしくは1個を許容）
+
+** Variables
+
+scheme の変数はその名の通り可変で、何がどの値で定義されているかは状況によっては変更（更新）しないといけない
+
+Haskell は純粋関数型なのでこういった可変な状況を取り扱うときにはちょっと考えないといけない
+
+可変な状況を扱うものとして State モナドとかある。単一レイヤーの場合は単純な key-val のマップを保持することで対応できるし、その場合は State モナドでも行けそうなんだが、今回はネストされた関数間のスコープ制御とかクロージャとか考えると、これだと厳しい
+
+なので今回は ST (State Thread) をつかう
+
+#+begin_src haskell
+type Env = IORef [(String, IORef LispVal)]
+#+end_src
+
+IORef は破壊的代入が可能なデータ構造で、ここでは2箇所で IORef を用いている。 scheme 環境全体の変数状況が可変なのと、個々の変数が可変なため
+
+IORef は IO モナドの中でしか使えないので、 IORef の操作に伴うエラーは今ある Either LispError ではまかなえない。なので新しくエラーを表す型を定義する
+
+#+begin_src haskell
+type IOThrowsError = ExceptT LispError IO
+#+end_src
+
+ExceptT は別のモナドをエラーモナド(Either)と一緒に包含して新たなモナドを作る関数で以下のように定義されていて、このモナドを扱うときは runExceptT メソッドを用いる
+
+#+begin_src haskell
+-- Prelude Control.Monad.Except> :t ExceptT
+ExceptT :: m (Either e a) -> ExceptT e m a
+#+end_src
+
+ある変数がその名前ですでに定義（束縛）されているかを確認する関数は、最初に定義した Env と確認したい変数名を受け取り、その Env 内に変数名がすでに定義されているかを確認する
+
+IORef な変数の読み取りは readIORef で行い、モナド内の値は >>= bind で次の関数に渡す。すなわち、 IORef な Env を readIORef で読み取り、その結果を変数名で lookup する関数に渡す。見つからないかもしれないので結果は maybe で返す
+
+#+begin_src haskell
+isBound :: Env -> String -> IO Bool
+isBound envRef var = readIORef envRef >>= return . maybe False (const True) . lookup var
+#+end_src
+
+変数の取得は、指定された変数名で取得できないケースをエラーと扱うようにすると、変数の取得で IO モナドとして行うがそれを上で定義した IOThrowsError に変換しないといけない
+
+このために IO モナドから違うモナドに持ち上げる liftIO を用いる
+
+変数の設定も同様に、先に指定された変数名で束縛されていない場合はエラーと扱うようにすると、取得時と同様に liftIO で持ち上げればよい。また IORef なデータへの書き込みは writeIORef で実行する
+
+#+begin_src haskell
+setVar envRef var val = do
+  env <- liftIO $ readIORef envRef
+  maybe (throwError $ UnboundVar "Setting an unbound variable" var)
+    (liftIO . (flip writeIORef val))
+    (lookup var env)
+  return val
+#+end_src
+
+lookup で Env から IORef なデータを取得する処理が後ろに書かれていて、 writeIORef (IORef なデータ) 書き込みたい値 なので、 flip で引数適用順序を変えている
+
+変数の設定でも事前にその変数名で束縛されていることを条件にしているので、実際に変数定義する処理はこれをラップするような形で実装する。すでに束縛されていれば上の setVar を使えばよくて、束縛されていなければ新たに変数名と IORef な値のペアを作って Env につなげる
+
+#+begin_src haskell
+defineVar envRef var val = do
+  alreadyDefined <- liftIO $ isBound envRef var
+  if alreadyDefined
+    then setVar envRef var val >> return val
+    else liftIO $ do
+           valRef <- newIORef val
+           env <- readIORef envRef
+           writeIORef envRef ((var, valRef) : env)
+           return val
+#+end_src
+
+あとは評価関数が引数に Env を引き受けるようにし、 Env を参照したり更新するような関数では適宜上記で定義した関数を使用すればよい
+
+評価関数をまとめる evalString では、評価対象の文字列 expr を読み取ってパーズするときのエラーハンドリング liftThrows と、その結果を >>= bind で eval に渡して評価した結果を liftM で IOThrowsError に持ち上げて、 IOThrowsError をいい具合に処理する runIOThrows 関数に渡すように修正
+
+#+begin_src diff
+-evalString :: String -> IO String
+-evalString expr = return $ extractValue $ trapError (liftM show $ readExpr expr >>= eval)
++evalString :: Env -> String -> IO String
++evalString env expr = runIOThrows $ liftM show $ (liftThrows $ readExpr expr) >>= eval env
+#+end_src
