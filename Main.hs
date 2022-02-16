@@ -302,7 +302,7 @@ eval env (List [Atom "if", test, conseq, alt]) = do
     Bool True -> eval env conseq
     Bool False -> eval env alt
     other -> throwError $ TypeMismatch "boolean" other
-eval env (List [Atom "setl", Atom var, form]) = eval env form >>= setVar env var
+eval env (List [Atom "set!", Atom var, form]) = eval env form >>= setVar env var
 eval env (List (Atom "define" : List (Atom var : params) : body)) = makeNormalFunc env params body >>= defineVar env var
 eval env (List (Atom "define" : DottedList (Atom var : params) varargs : body)) = makeVarArgs varargs env params body >>= defineVar env var
 eval env (List (func : args)) = do
