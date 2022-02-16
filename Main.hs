@@ -287,6 +287,7 @@ bindVars envRef bindings = readIORef envRef >>= extendEnv bindings >>= newIORef
 
 makeFunc varargs env params body = return $ Func (map showVal params) varargs body env
 makeNormalFunc = makeFunc Nothing
+makeVarArgs = makeFunc . Just . showVal
 
 eval :: Env -> LispVal -> IOThrowsError LispVal
 eval _ val@(String _) = return val
@@ -302,8 +303,8 @@ eval env (List [Atom "if", test, conseq, alt]) = do
     Bool False -> eval env alt
     other -> throwError $ TypeMismatch "boolean" other
 eval env (List [Atom "setl", Atom var, form]) = eval env form >>= setVar env var
-eval env (List [Atom "define", Atom var, form]) = eval env form >>= defineVar env var
 eval env (List (Atom "define" : List (Atom var : params) : body)) = makeNormalFunc env params body >>= defineVar env var
+eval env (List (Atom "define" : DottedList (Atom var : params) varargs : body)) = makeVarArgs varargs env params body >>= defineVar env var
 eval env (List (func : args)) = do
   f <- eval env func
   argVals <- mapM (eval env) args

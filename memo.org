@@ -550,3 +550,36 @@ makeNormalFunc は可変長引数がない makeFunc で、 makeFunc では追加
 makeFunc varargs env params body = return $ Func (map showVal params) varargs body env
 makeNormalFunc = makeFunc Nothing
 #+end_src
+
+scheme では可変長引数は関数定義のときに DottedList で定義する
+
+#+begin_src scheme
+(define (three-args+ a b c . d)
+  (list a b c d))
+#+end_src
+
+ので、関数定義に DottedList が使われているなら可変長引数が使われていると判断できるので、以下の通り関数定義を評価する
+
+#+begin_src haskell
+eval env (List (Atom "define" : DottedList (Atom var : params) varargs : body)) = makeVarArgs varargs env params body >>= defineVar env var
+#+end_src
+
+関数適用時に、可変長引数はその名前と「固定長のパラメータより多く渡された引数のリスト」を bindVars でレキシカルスコープに束縛している
+
+#+begin_src haskell
+apply (Func params varargs body closure) args =
+  if num params /= num args && varargs == Nothing
+    then throwError $ NumArgs (num params) args
+    else (liftIO $ bindVars closure $ zip params args) >>= bindVarArgs varargs >>=
+         evalBody
+  where
+    remainingArgs = drop (length params) args
+    num = toInteger . length
+    evalBody env = liftM last $ mapM (eval env) body
+    bindVarArgs arg env =
+      case arg of
+        Just argName -> liftIO $ bindVars env [(argName, List $ remainingArgs)] -- ココ！
+        Nothing -> return env
+#+end_src
+
+可変長引数、実装してみたは良いけどどう確認するとよいのかな。プリント系使えそうだけど primitive な関数にまずプリント系入れるところからやったほうがいいかな
