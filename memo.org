@@ -502,3 +502,51 @@ getVar envRef var = do
     (liftIO . readIORef)
     (lookup var env)
 #+end_src
+
+ここまでは関数定義じゃなくてその準備（ primitive という事前に定義した関数を Env にどうやって登録するか、登録した primitive な関数をどうやって Env から取得して適用するか）
+
+ここから関数定義の話
+
+関数は関数名、パラメータ（固定長）、可変長引数、関数本体、レキシカルスコープな Env によって構成されている。これの通り関数のデータ型を追加する。要素が多いので[[https://devtut.github.io/haskell/record-syntax.html][レコード構文]]を使う（公式のドキュメントだとどれなのかよくわからん）
+
+#+begin_src haskell
+Func { params :: [String], vararg :: (Maybe String), body :: [LispVal], closure :: Env }
+#+end_src
+
+ユーザー定義の関数を適用するにはまずパラメータの数をチェックする。定義されていた関数が要求するパラメータの個数と、関数適用時に渡している引数の個数があっているかどうか、あっていない場合可変長引数の利用があるかどうかをチェックする。このチェックに引っかかった段階で引数個数不正のエラーを返す
+
+チェックを通過したら関数適用に入る。まずは zip 関数で渡された引数 args を params とのタプルのリストにし、それをレキシカルスコープな Env である closure に bindVars で変数束縛情報として追加する。次に可変長引数を処理するが、これも引数の処理とだいたい同じ流れをローカル関数 bindVarArgs で行っており、レキシカルスコープ closure に可変長引数の名前を渡した引数の余りである remainingArgs とタプル化して bindVars で追加する。可変長引数がないなら何もしないで closure を返すだけ。
+
+で、本体の評価 evalBody に移る。レキシカルスコープ closure を引数にとった評価関数（評価対象を待っている）を mapM で関数本体 body に適用している。適用結果はリストとして返ってくるが、関数の戻り値は関数本体の body の最後の評価結果なのでリストの last を返す
+
+#+begin_src haskell
+apply (Func params varargs body closure) args =
+  if num params /= num args && varargs == Nothing
+    then throwError $ NumArgs (num params) args
+    else (liftIO $ bindVars closure $ zip params args) >>= bindVarArgs varargs >>=
+         evalBody
+  where
+    remainingArgs = drop (length params) args
+    num = toInteger . length
+    evalBody env = liftM last $ mapM (eval env) body
+    bindVarArgs arg env =
+      case arg of
+        Just argName -> liftIO $ bindVars env [(argName, List $ remainingArgs)]
+        Nothing -> return env
+#+end_src
+
+上記では関数の適用を見てきたが、任意の関数を定義するにはどうするか？ここでは define に手を入れる
+
+#+begin_src haskell
+eval env (List [Atom "define", Atom var, form]) = eval env form >>= defineVar env var
+eval env (List (Atom "define" : List (Atom var : params) : body)) = makeNormalFunc env params body >>= defineVar env var
+#+end_src
+
+前者は Atom として受ける var を後続の form の評価内容で束縛するだけ（ define 含めて大外のリスト要素が3つ固定）だが、後者ではまず define のあとに任意の長さの var : params のリストを受けるようになっていて、 makeNormalFunc で関数定義の情報を作ったあとにそれを変数名に束縛している
+
+makeNormalFunc は可変長引数がない makeFunc で、 makeFunc では追加した Func データ型のレコード構文の順番に沿って型引数を渡して Func 型のデータを作っている。パラメータは [String] なので showVal を map で適用している
+
+#+begin_src haskell
+makeFunc varargs env params body = return $ Func (map showVal params) varargs body env
+makeNormalFunc = makeFunc Nothing
+#+end_src
