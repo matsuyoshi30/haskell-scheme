@@ -435,3 +435,70 @@ defineVar envRef var val = do
 +evalString :: Env -> String -> IO String
 +evalString env expr = runIOThrows $ liftM show $ (liftThrows $ readExpr expr) >>= eval env
 #+end_src
+
+** Define function
+
+データ型に関数を追加する。まずは primitive な関数を表す PrimitiveFunc 型で、これはすでに定義した primitive な関数の辞書の型を見れば値コンストラクタとして中に引き受ける型もすぐわかる
+
+関数適用を行う apply を修正する。これまでは文字列をパラメータに持ち、引き受けた文字列で primitive の辞書を lookup していたが、新しくデータ型に関数を追加したのでそれをそのまま適用させれば良い
+
+#+begin_src haskell
+apply (PrimitiveFunc func) args = liftThrows $ func args
+#+end_src
+
+適用結果は liftThrows で IOThrowsError に持ち上げる
+
+関数適用つまりその関数と後続に続く引数の評価は、リストの先頭にある関数が Atom として評価を実施していたが、今回データ型を追加したことで Atom ではなくなった
+
+#+begin_src haskell
+eval env (List (func : args)) = do
+  f <- eval env func
+  argVals <- mapM (eval env) args
+  apply f argVals
+#+end_src
+
+apply で IOThrowsError に持ち上げるようにしたのでここでは liftThrows しないようになっているが、べつに apply の戻り値の型を ThrowsError のままにして liftThrows で持ち上げるのは eval 側でやっても良い
+
+で、上の修正によって primitive な関数を primitive な辞書から lookup しないようになっていて、じゃあ果たしてどこから primitive な関数を引っ張ってくるのかという話になるが、それは実は Env から引っ張ってくるようになっている
+
+まず、 REPL 起動時に NULL な Env から初期処理を実施していた箇所を修正する。 nullEnv のままはいスタート、じゃなくて primitive な関数の情報を Env に設定する関数を書く
+
+#+begin_src haskell
+primitiveBindings :: IO Env
+primitiveBindings = nullEnv >>= (flip bindVars $ map makePrimitiveFunc primitives)
+  where makePrimitiveFunc (var, func) = (var, PrimitiveFunc func)
+#+end_src
+
+primitives という primitive 関数の辞書（リスト）に対し、リストの各要素（タプル）から PrimitiveFunc という今回新しく追加したデータ型に変換するローカル関数を map 経由で適用し、その結果と Null な Env を bindVars に渡している（bindVars はじつは前の変数のところで定義していたがそこでは用いない内容だったのでコメントアウトしていた）
+
+#+begin_src haskell
+bindVars envRef bindings = readIORef envRef >>= extendEnv bindings >>= newIORef
+  where extendEnv bindings env = liftM (++ env) (mapM addBinding bindings)
+        addBinding (var, val) = do
+          ref <- newIORef val
+          return (var, ref)
+#+end_src
+
+bindVars では Env と Env に適用する変数の束縛情報（のリスト）をパラメータに持ち、それらから新しい Env を生成する関数。まず readIORef で可変な Env の内容を読み取り、それをローカル関数 extendEnv に渡している。 extendEnv では読み取った Env の内容と Env に適用する変数の束縛情報 bindings をパラメータに持ち、 これまたローカル関数 addBinding を mapM で変数束縛情報リストに適用することで、 Env に変数の束縛情報を追加 (++) していく。 addBinding では変数名と束縛する内容をパラメータに持ち、変数内容から IORef を生成して返す（可変なので）だけ。
+
+primitiveBindings とその中で用いる bindVars によって、 primitive な関数群が Env に変数として登録される。これを REPL 起動やワンライナー起動時に実行する
+
+実際に primitive な関数が呼び出される順序は以下の通り。まず再掲だが関数適用の式は以下のように評価されるが、 eval env func の結果が実施する関数となっている
+
+#+begin_src haskell
+eval env (List (func : args)) = do
+  f <- eval env func
+  argVals <- mapM (eval env) args
+  apply f argVals
+#+end_src
+
+これは =eval env (Atom id) = getVar env id= として処理され、関数名として渡された内容で getVar が実施される。getVar では Env から指定された変数を lookup して取得しており、これによって事前に Env に登録した primitive な関数を引っ張ってきている
+
+#+begin_src haskell
+getVar envRef var = do
+  env <- liftIO $ readIORef envRef
+  -- liftIO $ putStrLn "debug" -- これを仕込んで (+ 1 1) を実行すると、評価結果の 2 の前に debug という文字列が出力される
+  maybe (throwError $ UnboundVar "Getting an unbound variable" var)
+    (liftIO . readIORef)
+    (lookup var env)
+#+end_src

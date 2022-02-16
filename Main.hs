@@ -20,6 +20,7 @@ data LispVal = Atom String
   | Bool Bool
   | Character Char
   | Vector (Array Int LispVal)
+  | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
 
 instance Show LispVal where show = showVal
 
@@ -35,6 +36,7 @@ showVal (Bool True) = "#t"
 showVal (Bool False) = "#f"
 showVal (Character ch) = show ch
 showVal (Vector arr) = "#(" ++ unwordList (elems arr) ++ ")"
+showVal (PrimitiveFunc _) = "<primitive>"
 
 unwordList :: [LispVal] -> String
 unwordList = unwords . map showVal
@@ -268,12 +270,12 @@ defineVar envRef var val = do
            writeIORef envRef ((var, valRef) : env)
            return val
 
--- bindVar :: Env -> [(String, LispVal)] -> IO Env
--- bindVar envRef bindings = readIORef envRef >>= extendEnv bindings >>= newIORef
---   where extendEnv bindings env = liftM (++ env) (mapM addBinding bindings)
---         addBinding (var, val) = do
---           ref <- newIORef val
---           return (var, ref)
+bindVars :: Env -> [(String, LispVal)] -> IO Env
+bindVars envRef bindings = readIORef envRef >>= extendEnv bindings >>= newIORef
+  where extendEnv bindings env = liftM (++ env) (mapM addBinding bindings)
+        addBinding (var, val) = do
+          ref <- newIORef val
+          return (var, ref)
 
 eval :: Env -> LispVal -> IOThrowsError LispVal
 eval _ val@(String _) = return val
@@ -290,11 +292,14 @@ eval env (List [Atom "if", test, conseq, alt]) = do
     other -> throwError $ TypeMismatch "boolean" other
 eval env (List [Atom "setl", Atom var, form]) = eval env form >>= setVar env var
 eval env (List [Atom "define", Atom var, form]) = eval env form >>= defineVar env var
-eval env (List (Atom func : args)) = mapM (eval env) args >>= liftThrows . apply func
+eval env (List (func : args)) = do
+  f <- eval env func
+  argVals <- mapM (eval env) args
+  liftThrows $ apply f argVals
 eval _ badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
-apply :: String -> [LispVal] -> ThrowsError LispVal
-apply func args = maybe (throwError $ NotFunction "Unrecognized primitive function args" func) ($ args) (lookup func primitives)
+apply :: LispVal -> [LispVal] -> ThrowsError LispVal
+apply (PrimitiveFunc func) args = func args
 
 primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
 primitives = [("+", numericBinOp (+)),
@@ -482,6 +487,10 @@ equal badArgList = throwError $ NumArgs 2 badArgList
 
 -- TODO: case
 
+primitiveBindings :: IO Env
+primitiveBindings = nullEnv >>= (flip bindVars $ map makePrimitiveFunc primitives)
+  where makePrimitiveFunc (var, func) = (var, PrimitiveFunc func)
+
 readExpr :: String -> ThrowsError LispVal
 readExpr input =
   case parse parseExpr "lisp" input of
@@ -509,10 +518,10 @@ until_ terminateCond prompt action = do
     else action result >> until_ terminateCond prompt action
 
 runOne :: String -> IO ()
-runOne expr = nullEnv >>= flip evalAndPrint expr
+runOne expr = primitiveBindings >>= flip evalAndPrint expr
 
 runRepl :: IO ()
-runRepl = nullEnv >>= until_ (== "quit") (readPrompt "MINI Haskell-Scheme >>> ") . evalAndPrint
+runRepl = primitiveBindings >>= until_ (== "quit") (readPrompt "MINI Haskell-Scheme >>> ") . evalAndPrint
 
 main :: IO ()
 main = do
