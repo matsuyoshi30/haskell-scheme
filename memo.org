@@ -583,3 +583,85 @@ apply (Func params varargs body closure) args =
 #+end_src
 
 可変長引数、実装してみたは良いけどどう確認するとよいのかな。プリント系使えそうだけど primitive な関数にまずプリント系入れるところからやったほうがいいかな
+
+** IO Primitive and Port
+
+今の状態だとワンライナー的な使い方か、もしくは REPL 起動していちいちタイプして実行しかない。ファイルから内容をロードして実行できるようにする
+
+また、 Haskell-Scheme がファイルから読み込むのとは別に、読み込むファイルがまた別のファイル操作関数をつかっているときにも対応できるように、 scheme の IO 関連関数を ioPrimitives として定義しておく
+
+まずは IO 関連のエラーを返しうる関数のデータ型を定義。これまで定義してきた関数は IO 関連のエラー IOThrowsError じゃなくて ThrowsError を戻り値としているので、ここでは別のデータ型として追加
+
+#+begin_src haskell
+IOFunc ([LispVal] -> IOThrowsError LispVal)
+#+end_src
+
+scheme で IO 関連の処理を表す関数用のデータ型も追加しておく。これは scheme で [[https://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_sec_6.6.1][Port]] と呼ばれる種類の関数群を示すが、内部的には Haskell の IO 関連の処理を扱える [[https://hackage.haskell.org/package/base-4.16.0.0/docs/GHC-IO-Handle.html][Handle]] というデータ型をラップするように定義した
+
+#+begin_src haskell
+Port Handle
+#+end_src
+
+例えば、 scheme でいう open-input-file 関数（ファイル名を指定して、それの入力ポートを取得する）は、 IO Handle を返す [[https://hackage.haskell.org/package/base-4.16.0.0/docs/System-IO.html#v:openFile][openFile]] 関数（ファイル名とオープンのモードを指定）で定義する
+
+#+begin_src haskell
+-- open-input-file は makePort ReadMode
+makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
+makePort mode [String filename] = liftM Port $ liftIO $ openFile filename mode
+#+end_src
+
+ファイルの中身を読み込んで ExprList としてパーズするヘルパー関数も追加しておく。 REPL でも使える load 関数はこのヘルパー関数を呼び出すだけ
+
+#+begin_src haskell
+load :: String -> IOThrowsError [LispVal]
+load filename = (liftIO $ readFile filename)  >>= liftThrows . readExprList
+
+eval env (List [Atom "load", String filename]) = load filename >>= liftM last . mapM (eval env)
+#+end_src
+
+なお、今まではワンライナーもしくは REPL に打ち込まれた単一の Expr を読み取って評価すればよかったが、ファイルから読み込むとなるとファイル内に複数の Expr が書かれている可能性が高い（というか用途的にだいたいそう）ので、複数の Expr に対応するために読み取り処理を修正する
+
+#+begin_src haskell
+readOrThrow :: Parser a -> String -> ThrowsError a
+readOrThrow parser input = case parse parser "lisp" input of
+  Left err -> throwError $ Parser err
+  Right val -> return val
+
+readExpr = readOrThrow parseExpr
+readExprList = readOrThrow (endBy parseExpr spaces)
+#+end_src
+
+Expr を読み込んでパーズするのは別関数に切り出し、単一かもしくはリストかで関数を分ける。 REPL のときは単一で良くて、ファイルからの場合はリストの方を使う
+
+あとは、Haskell-Scheme 起動時に引数が与えられた場合は、ワンライナー実行ではなくファイル名指定とみなすよう修正する
+
+#+begin_src diff
+-runOne :: String -> IO ()
+-runOne expr = primitiveBindings >>= flip evalAndPrint expr
++runOne :: [String] -> IO ()
++runOne args = do
++  env <- primitiveBindings >>= flip bindVars [("args", List $ map String $ drop 1 args)]
++  (runIOThrows $ liftM show $ eval env (List [Atom "load", String (args !! 0)])) >>= hPutStrLn stderr
+#+end_src
+
+primitiveBindings では primitive な関数（今回追加した IO 系含む）を環境に追加していて、かつプログラム起動時の引数に与えられたファイル名を args という変数に束縛して追加している
+
+そのあとに評価に移るが、定義した load 関数はファイル名を一つしか引き受けないので、ここではプログラム起動時の引数に複数のファイルが渡されても一番最初のもののみロードする
+
+以上の作業により、外部ファイルを読み込んだりその内容を評価したりすることができるようになった！
+
+#+begin_src scheme
+; sample.scm
+(define x 5)
+(define y (+ x 1))
+(define z (* y 2))
+#+end_src
+
+#+begin_src shell
+% ./Main sample.scm
+12
+% ./Main
+MINI Haskell-Scheme >>> (load "sample.scm")
+12
+MINI Haskell-Scheme >>>
+#+end_src
