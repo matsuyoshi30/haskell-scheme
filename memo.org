@@ -729,3 +729,15 @@ scheme では [[https://www.gnu.org/software/guile/manual/html_node/SRFI_002d1-F
 #+end_src
 
 このとき、 (sum . lst) は (sum 1 2 3) と呼び出されたときに引数を DottedList の tail とみなしてリスト化 (sum . '(1 2 3)) している
+
+関数とリストを引数に受け取り、リストの各要素に関数を適用して新しいリストを返す map 関数も追加
+
+#+begin_src scheme
+(define (map func lst) (foldr (lambda (x y) (cons (func x) y)) '() lst))
+#+end_src
+
+filter 関数は map と同じような考え方で、リストの各要素が条件を満たすかどうかチェックし、満たしている場合はリストに追加していけば良い
+
+#+begin_src scheme
+(define (filter pred lst) (foldr (lambda (x y) (if (pred x) (cons x y) y)) '() lst))
+#+end_src
