@@ -665,3 +665,57 @@ MINI Haskell-Scheme >>> (load "sample.scm")
 12
 MINI Haskell-Scheme >>>
 #+end_src
+
+** Standard Library
+
+Haskell 風味に標準ライブラリを作ってみると、 scheme の勉強にも Haskell の勉強にもなる
+
+#+begin_src scheme
+(define (foldr func end lst)
+  (if (null? lst)
+      end
+      (func (car lst) (foldr func end (cdr lst)))))
+#+end_src
+
+右畳み込み foldr はリストが空だったら引数の end を返し、空じゃないならリストの先頭、および残りのリストを引数に持つ再帰的に呼び出した foldr の結果、を引数に渡して関数を呼び出す
+
+例えば foldr + 0 '(1 2 3) のときは以下のような流れ
+
+#+begin_src scheme
+(foldr + 0 '(1 2 3))
+; => (+ 1 (foldr + 0 '(2 3)))
+; => (+ 1 (+ 2 (foldr + 0 '(3))))
+; => (+ 1 (+ 2 (+ 3 (foldr + 0 '()))))
+; lst が null なので
+; => (+ 1 (+ 2 (+ 3 (0))))
+; => (+ 1 (+ 2 3))
+; => (+ 1 5)
+6
+#+end_src
+
+すごい Haskell 本でもあったとおり、右畳み込みなので処理自体は右からぐーんと畳んでいくが値の取得は先頭からやっている
+
+一方で左畳み込みはアキュムレータを引数に持つこんなかたち
+
+#+begin_src scheme
+(define (foldl func accum lst)
+  (if (null? lst)
+      accum
+      (foldl func (func accum (car lst)) (cdr lst))))
+#+end_src
+
+文字通り左から畳み込んでいくので foldl + 0 '(1 2 3) は以下のような流れで処理される
+
+#+begin_src scheme
+(foldl + 0 '(1 2 3))
+; => (foldl + (+ 0 '(1)) '(2 3))
+; => (foldl + (+ (+ 0 '(1)) '(2)) '(3))
+; => (foldl + (+ (+ (+ 0 '(1)) '(2)) '(3)) '())
+; lst が null なので
+; => (+ (+ (+ 0 '(1)) '(2)) '(3))
+; => (+ (+ 1 '(2)) '(3))
+; => (+ 3 '(3))
+6
+#+end_src
+
+アキュムレータには値が積まれていく遅延評価
