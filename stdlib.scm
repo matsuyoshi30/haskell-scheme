@@ -32,3 +32,8 @@
   (if (pred init)
       (cons init '())
       (cons init (unfold func (func init) pred))))
+
+(define (sum . lst) (fold + 0 lst))
+(define (product . lst) (fold * 1 lst))
+(define (and . lst) (fold && #t lst))
+(define (or . lst) (fold || #f lst))
