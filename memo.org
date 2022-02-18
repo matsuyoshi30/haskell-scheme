@@ -719,3 +719,5 @@ Haskell 風味に標準ライブラリを作ってみると、 scheme の勉強�
 #+end_src
 
 アキュムレータには値が積まれていく遅延評価
+
+scheme では [[https://www.gnu.org/software/guile/manual/html_node/SRFI_002d1-Fold-and-Map.html][fold と fold-right]] があるっぽい？ fold は末尾再帰が使われているという意味で、今回は foldl を fold 、 foldr を reduce でも使えるよう別名の関数として定義しておく
