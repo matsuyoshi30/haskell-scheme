@@ -53,7 +53,19 @@ tests = [(["(+ 1 2)"], "3"),
          (["(eqv? 1 1)"], "#t"),
          (["(equal? '(1 2) '(1 2))"], "#t"),
          (["(if #t 7 3)"], "7"),
-         (["(if #f 7 3)"], "3")]
+         (["(if #f 7 3)"], "3"),
+         (["(define size 2)", "size"], "2"),
+         (["(define (square x) (* x x))", "(square 4)"], "16"),
+         (["(define (square x) (* x x))", "(square (square 3))"], "81"),
+         (["(define (square x) (* x x))",
+           "(define (sum-of-squares x y) (+ (square x) (square y)))",
+           "(sum-of-squares 3 4)"], "25"),
+         (["(define (forthpower n) (define m (* n n)) (* m m))",
+           "(forthpower 3)"], "81"),
+         (["(define (square x) (* x x))",
+           "(define x 42)",
+           "(square 5)",
+           "x"], "42")]
 
 main :: IO Counts
 main = do
