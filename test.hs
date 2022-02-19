@@ -65,7 +65,12 @@ tests = [(["(+ 1 2)"], "3"),
          (["(define (square x) (* x x))",
            "(define x 42)",
            "(square 5)",
-           "x"], "42")]
+           "x"], "42"),
+         (["(load \"sample.scm\")", "x"], "5"),
+         (["(load \"stdlib.scm\")",
+           "(map (curry + 2) '(1 2 3 4))"], "(3 4 5 6)"),
+         (["(load \"stdlib.scm\")",
+           "(filter even? '(1 2 3 4))"], "(2 4)")]
 
 main :: IO Counts
 main = do
