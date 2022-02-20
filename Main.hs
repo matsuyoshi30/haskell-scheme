@@ -168,6 +168,14 @@ bin2dig' digint (x:xs) =
 parseNumber :: Parser LispVal
 parseNumber = parseDec <|> parseHex <|> parseOct <|> parseBin
 
+parseNegativeNum :: Parser LispVal
+parseNegativeNum = do
+  nn <- try $ do
+    _ <- char '-'
+    n <- many1 digit
+    return $ (-1) * (read n)
+  return $ Number nn
+
 parseFloat :: Parser LispVal
 parseFloat = do
   f <- try $ do
@@ -233,7 +241,7 @@ parseVector = do
   return $ Vector (listArray (0, (length es - 1)) es)
 
 parseExpr :: Parser LispVal
-parseExpr = parseString <|> parseCharacter <|> parseRatio <|> parseFloat <|> parseNumber <|> parseAtom <|> parseVector <|> parseBool <|> parseQuoted  <|> parseQuasiQuoted <|> parseUnQuoteSplicing <|> parseUnQuote <|> do
+parseExpr = parseString <|> parseCharacter <|> parseRatio <|> parseFloat <|> parseNegativeNum <|> parseNumber <|> parseAtom <|> parseVector <|> parseBool <|> parseQuoted  <|> parseQuasiQuoted <|> parseUnQuoteSplicing <|> parseUnQuote <|> do
   _ <- char '('
   x <- try parseList <|> try parseDottedList
   _ <- char ')'
